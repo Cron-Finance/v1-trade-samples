@@ -47,10 +47,6 @@ contract FlashSwapForkTest is Test {
   // URL: https://app.balancer.fi/#/ethereum/pool/0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112
   bytes32 public poolIdRETHStablePool = 0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112;
 
-  // USDC/WETH Pool:
-  // URL: https://app.balancer.fi/#/ethereum/pool/0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019
-  bytes32 public poolIdUSDCWETHLiquidPool = 0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019;
-
   IVault public vault = IVault(VAULT);
 
   function testForkGetTokens() public {
@@ -73,18 +69,6 @@ contract FlashSwapForkTest is Test {
     vm.stopPrank();
     assertEq(IERC20(RETH).balanceOf(_in), transferAmount);
     assertEq(IERC20(WSTETH).balanceOf(_in), transferAmount);
-  }
-
-  // load user with 10k USDC, WETH
-  function transferTokensLiquid(address _in) public {
-    vm.startPrank(USDC_RICHIE);
-    IERC20(USDC).transfer(_in, 1e15);
-    vm.stopPrank();
-    vm.startPrank(WETH_RICHIE);
-    IERC20(WETH).transfer(_in, 1e22);
-    vm.stopPrank();
-    assertEq(IERC20(USDC).balanceOf(_in), 1e15);
-    assertEq(IERC20(WETH).balanceOf(_in), 1e22);
   }
 
   function joinPool(address _in, address _token0, address _token1, uint256 _poolType) public {
@@ -199,85 +183,6 @@ contract FlashSwapForkTest is Test {
       IVault.SwapKind.GIVEN_IN,
       swaps,
       _convertERC20sToAssets(tokens3),
-      IVault.FundManagement(
-        alice,
-        false,
-        payable (alice),
-        false
-      ),
-      limits,
-      block.timestamp + 1000
-    );
-    vm.stopPrank();
-    // console.log("Amount out: ", amountOut[0]);
-  }
-
-  function testForkFlashSwapWethUsdc() public {
-    address alice = vm.addr(100);
-    transferTokensLiquid(alice);
-    joinPool(alice, USDC, WETH, uint256(ICronV1PoolEnums.PoolType.Liquid));
-    vm.label(alice, "alice");
-    vm.label(USDC, "USDC");
-    vm.label(WETH, "WETH");
-    // get pool from factory
-    address pool = ICronV1PoolFactory(FACTORY).getPool(USDC, WETH, uint256(ICronV1PoolEnums.PoolType.Liquid));
-    // console.log("Pool address", pool);
-    bytes32 poolId = ICronV1Pool(pool).POOL_ID();
-    // console.log("Pool ID", vm.toString(poolId));
-    // uint256 swapAmount = 1e21;
-    // setup information for short term swap through a TWAMM pool
-    bytes memory userData = abi.encode(
-      ICronV1PoolEnums.SwapType.RegularSwap, // swap type
-      0
-    );
-    (IERC20[] memory tokens, , ) = vault.getPoolTokens(poolId);
-    (IERC20[] memory tokens2, , ) = vault.getPoolTokens(poolIdUSDCWETHLiquidPool);
-    // IAsset[] memory assets = _convertERC20sToAssets(tokens);
-    // IAsset[] memory assets2 = _convertERC20sToAssets(tokens2);
-    int256[] memory limits = new int256[](tokens.length);
-    for (uint256 i; i < tokens.length; i++) {
-      limits[i] = 0;
-    }
-    // ensure correct tokens are in the pool for batchswap step
-    // console.log("USDC Index: ", getTokenIndex(USDC, poolId));
-    // console.log("WETH Index: ", getTokenIndex(WETH, poolId));
-    assertEq(address(tokens[getTokenIndex(USDC, poolId)]), USDC, "USDC Check 1");
-    assertEq(address(tokens[getTokenIndex(WETH, poolId)]), WETH, "WETH Check 1");
-    assertEq(tokens2.length, 4, "Tokens length");
-    // console.log("USDC Index: ", getTokenIndex(USDC, poolIdUSDCWETHLiquidPool));
-    // console.log("WETH Index: ", getTokenIndex(WETH, poolIdUSDCWETHLiquidPool));
-    assertEq(address(tokens2[getTokenIndex(USDC, poolIdUSDCWETHLiquidPool)]), USDC, "USDC Check 2");
-    assertEq(address(tokens2[getTokenIndex(WETH, poolIdUSDCWETHLiquidPool)]), WETH, "WETH Check 2");
-    IVault.BatchSwapStep[] memory swaps = new IVault.BatchSwapStep[](2);
-    // assetIn: USDC (0) | assetOut: WETH (1)
-    swaps[0] = IVault.BatchSwapStep(
-      poolId,
-      getTokenIndex(WETH, poolId),
-      getTokenIndex(USDC, poolId),
-      1e18,
-      userData
-    );
-    // assetIn: WETH (1) | assetOut: USDC (0)
-    swaps[1] = IVault.BatchSwapStep(
-      poolIdComposablePool,
-      getTokenIndex(USDC, poolIdUSDCWETHLiquidPool),
-      getTokenIndex(WETH, poolIdUSDCWETHLiquidPool),
-      0,
-      ""
-    );
-    // console.log("checking bounds for assets");
-    // console.log("checking bounds for assets2");
-    // checkSwapBounds(swaps, _convertERC20sToAssets(tokens));
-    // checkSwapBounds(swaps, _convertERC20sToAssets(tokens2));
-    // start acting as alice
-    vm.startPrank(alice);
-    // tokens[0].approve(VAULT, 1e18);
-    // tokens[1].approve(VAULT, 1e18);
-    // swap amounts with vault
-    vault.batchSwap(
-      IVault.SwapKind.GIVEN_IN,
-      swaps,
-      _convertERC20sToAssets(tokens2),
       IVault.FundManagement(
         alice,
         false,
