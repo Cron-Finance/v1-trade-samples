@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@balancer-labs/v2-vault": "^3.0.1"
+  }
+}
