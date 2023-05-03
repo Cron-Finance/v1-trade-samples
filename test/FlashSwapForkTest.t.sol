@@ -148,7 +148,12 @@ contract FlashSwapForkTest is Test {
       ICronV1PoolEnums.SwapType.RegularSwap, // swap type
       0
     );
-    (IERC20[] memory tokens, , ) = vault.getPoolTokens(poolId);
+
+    IERC20[] memory tokens = new IERC20[](3);
+    tokens[0] = IERC20(RETH);
+    tokens[1] = IERC20(WSTETH);
+    tokens[2] = IERC20(WETH);
+
     // IAsset[] memory assets = _convertERC20sToAssets(tokens);
     int256[] memory limits = new int256[](tokens.length);
     for (uint256 i; i < tokens.length; i++) {
@@ -156,28 +161,28 @@ contract FlashSwapForkTest is Test {
     }
     IVault.BatchSwapStep[] memory swaps = new IVault.BatchSwapStep[](3);
     // assetIn: RETH | assetOut: WSTETH
-    assertEq(RETH, address(tokens[getTokenIndex(RETH, poolId)]), "RETH Address correct");
-    assertEq(WSTETH, address(tokens[getTokenIndex(WSTETH, poolId)]), "WSTETH Address correct");
+    // assertEq(RETH, address(tokens[getTokenIndex(RETH, poolId)]), "RETH Address correct");
+    // assertEq(WSTETH, address(tokens[getTokenIndex(WSTETH, poolId)]), "WSTETH Address correct");
     swaps[0] = IVault.BatchSwapStep(
       poolId,
-      getTokenIndex(RETH, poolId),
-      getTokenIndex(WSTETH, poolId),
+      getTokenIndex(RETH, tokens),
+      getTokenIndex(WSTETH, tokens),
       1e18,
       userData
     );
     // assetIn: WSTETH | assetOut: USDC
     swaps[1] = IVault.BatchSwapStep(
       poolIdWstETHStablePool,
-      getTokenIndex(WSTETH, poolIdWstETHStablePool),
-      getTokenIndex(USDC, poolIdWstETHStablePool),
+      getTokenIndex(WSTETH, tokens),
+      getTokenIndex(WETH, tokens),
       0,
       ""
     );
     // assetIn: USDC | assetOut: RETH
     swaps[2] = IVault.BatchSwapStep(
       poolIdRETHStablePool,
-      getTokenIndex(USDC, poolIdRETHStablePool),
-      getTokenIndex(RETH, poolIdRETHStablePool),
+      getTokenIndex(WETH, tokens),
+      getTokenIndex(RETH, tokens),
       0,
       ""
     );
@@ -297,11 +302,11 @@ contract FlashSwapForkTest is Test {
     }
   }
 
-  function getTokenIndex(address _token, bytes32 _poolId) public view returns (uint256 index) {
-    (IERC20[] memory tokens, , ) = vault.getPoolTokens(_poolId);
-    for (uint256 i = 0; i < tokens.length; i++) {
-      if (address(tokens[i]) == _token) {
+  function getTokenIndex(address _token, IERC20[] memory _tokens) public view returns (uint256 index) {
+    for (uint256 i = 0; i < _tokens.length; i++) {
+      if (address(_tokens[i]) == _token) {
         index = i;
+        break;
       }
     }
   }
