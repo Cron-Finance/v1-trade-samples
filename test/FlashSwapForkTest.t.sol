@@ -134,14 +134,14 @@ contract FlashSwapForkTest is Test {
     transferTokensLST(alice);
     // WSTETH: 5000
     // RETH: 4000
-    joinPool(alice, WSTETH, RETH, 5e21, 4e21, uint256(ICronV1PoolEnums.PoolType.Stable));
+    joinPool(alice, WSTETH, RETH, 5e21, 4e21, uint256(ICronV1PoolEnums.PoolType.Liquid));
     vm.label(alice, "alice");
     vm.label(WSTETH, "WSTETH");
     vm.label(RETH, "RETH");
     vm.label(WETH, "WETH");
     vm.label(USDC, "USDC");
     // get pool from factory
-    address pool = ICronV1PoolFactory(FACTORY).getPool(WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Stable));
+    address pool = ICronV1PoolFactory(FACTORY).getPool(WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Liquid));
     // console.log("Pool address", pool);
     bytes32 poolId = ICronV1Pool(pool).POOL_ID();
     bytes memory userData = abi.encode(
@@ -214,55 +214,58 @@ contract FlashSwapForkTest is Test {
     transferTokensLST(alice);
     // WSTETH: 5000
     // RETH: 4000
-    joinPool(alice, WSTETH, RETH, 5e21, 4e21, uint256(ICronV1PoolEnums.PoolType.Stable));
+    joinPool(alice, WSTETH, RETH, 5e21, 4e21, uint256(ICronV1PoolEnums.PoolType.Liquid));
     vm.label(alice, "alice");
     vm.label(WSTETH, "WSTETH");
     vm.label(RETH, "RETH");
-    vm.label(WETH, "WETH");
-    vm.label(SFRXETH, "SFRXETH");
     // get pool from factory
     address pool = ICronV1PoolFactory(FACTORY).getPool(WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Liquid));
-    // console.log("Pool address", pool);
     bytes32 poolId = ICronV1Pool(pool).POOL_ID();
-    // uint256 swapAmount = 1e21;
     // setup information for short term swap through a TWAMM pool
     bytes memory userData = abi.encode(
       ICronV1PoolEnums.SwapType.RegularSwap, // swap type
       0
     );
-    IERC20[] memory tokens = new IERC20[](3);
-    tokens[0] = IERC20(WSTETH);
-    tokens[1] = IERC20(SFRXETH);
-    tokens[2] = IERC20(RETH);
-
+    (IERC20[] memory tokens, , ) = vault.getPoolTokens(poolId);
+    (IERC20[] memory tokens2, , ) = vault.getPoolTokens(poolIdComposablePool);
     int256[] memory limits = new int256[](tokens.length);
     for (uint256 i; i < tokens.length; i++) {
       limits[i] = 0;
     }
+    // ensure correct tokens are in the pool for batchswap step
+    assertEq(address(tokens[getTokenIndex(WSTETH, poolId)]), WSTETH, "WSTETH Check 1");
+    assertEq(address(tokens[getTokenIndex(RETH, poolId)]), RETH, "RETH Check 1");
+    assertEq(tokens2.length, 4, "Tokens length");
+    assertEq(address(tokens2[getTokenIndex(WSTETH, poolIdComposablePool)]), WSTETH, "WSTETH Check 2");
+    assertEq(address(tokens2[getTokenIndex(RETH, poolIdComposablePool)]), RETH, "RETH Check 2");
     IVault.BatchSwapStep[] memory swaps = new IVault.BatchSwapStep[](2);
     // assetIn: WSTETH (0) | assetOut: RETH (1)
     swaps[0] = IVault.BatchSwapStep(
       poolId,
-      getTokenIndex(WSTETH, tokens),
-      getTokenIndex(RETH, tokens),
+      getTokenIndex(WSTETH, poolId),
+      getTokenIndex(RETH, poolId),
       1e18,
       userData
     );
     // assetIn: RETH (3) | assetOut: WSTETH (1)
     swaps[1] = IVault.BatchSwapStep(
       poolIdComposablePool,
-      getTokenIndex(RETH, tokens),
-      getTokenIndex(WSTETH, tokens),
+      getTokenIndex(RETH, poolIdComposablePool),
+      getTokenIndex(WSTETH, poolIdComposablePool),
       0,
       ""
     );
+    console.log("checking bounds for assets");
+    console.log("checking bounds for assets2");
+    checkSwapBounds(swaps, _convertERC20sToAssets(tokens));
+    checkSwapBounds(swaps, _convertERC20sToAssets(tokens2));
     // start acting as alice
     vm.startPrank(alice);
     // swap amounts with vault
     vault.batchSwap(
       IVault.SwapKind.GIVEN_IN,
       swaps,
-      _convertERC20sToAssets(tokens),
+      _convertERC20sToAssets(tokens2),
       IVault.FundManagement(
         alice,
         false,
@@ -273,6 +276,7 @@ contract FlashSwapForkTest is Test {
       block.timestamp + 1000
     );
     vm.stopPrank();
+    // console.log("Amount out: ", amountOut[0]);
   }
 
   function checkSwapBounds(IVault.BatchSwapStep[] memory swaps, IAsset[] memory assets) public view returns (bool inBound) {
@@ -285,7 +289,17 @@ contract FlashSwapForkTest is Test {
     }
   }
 
-  function getTokenIndex(address _token, IERC20[] memory _tokens) public view returns (uint256 index) {
+  function getTokenIndex(address _token, bytes32 _poolId) public view returns (uint256 index) {
+    (IERC20[] memory tokens, , ) = vault.getPoolTokens(_poolId);
+    for (uint256 i = 0; i < tokens.length; i++) {
+      if (address(tokens[i]) == _token) {
+        index = i;
+        break;
+      }
+    }
+  }
+
+  function getTokenIndex(address _token, IERC20[] memory _tokens) public pure returns (uint256 index) {
     for (uint256 i = 0; i < _tokens.length; i++) {
       if (address(_tokens[i]) == _token) {
         index = i;
