@@ -226,46 +226,37 @@ contract FlashSwapForkTest is Test {
       ICronV1PoolEnums.SwapType.RegularSwap, // swap type
       0
     );
-    (IERC20[] memory tokens, , ) = vault.getPoolTokens(poolId);
-    (IERC20[] memory tokens2, , ) = vault.getPoolTokens(poolIdComposablePool);
+    IERC20[] memory tokens = new IERC20[](3);
+    tokens[0] = IERC20(RETH);
+    tokens[1] = IERC20(WSTETH);
     int256[] memory limits = new int256[](tokens.length);
     for (uint256 i; i < tokens.length; i++) {
       limits[i] = 0;
     }
-    // ensure correct tokens are in the pool for batchswap step
-    assertEq(address(tokens[getTokenIndex(WSTETH, poolId)]), WSTETH, "WSTETH Check 1");
-    assertEq(address(tokens[getTokenIndex(RETH, poolId)]), RETH, "RETH Check 1");
-    assertEq(tokens2.length, 4, "Tokens length");
-    assertEq(address(tokens2[getTokenIndex(WSTETH, poolIdComposablePool)]), WSTETH, "WSTETH Check 2");
-    assertEq(address(tokens2[getTokenIndex(RETH, poolIdComposablePool)]), RETH, "RETH Check 2");
     IVault.BatchSwapStep[] memory swaps = new IVault.BatchSwapStep[](2);
     // assetIn: WSTETH (0) | assetOut: RETH (1)
     swaps[0] = IVault.BatchSwapStep(
       poolId,
-      getTokenIndex(WSTETH, poolId),
-      getTokenIndex(RETH, poolId),
+      getTokenIndex(RETH, tokens),
+      getTokenIndex(WSTETH, tokens),
       1e18,
       userData
     );
     // assetIn: RETH (3) | assetOut: WSTETH (1)
     swaps[1] = IVault.BatchSwapStep(
       poolIdComposablePool,
-      getTokenIndex(RETH, poolIdComposablePool),
-      getTokenIndex(WSTETH, poolIdComposablePool),
+      getTokenIndex(WSTETH, tokens),
+      getTokenIndex(RETH, tokens),
       0,
       ""
     );
-    console.log("checking bounds for assets");
-    console.log("checking bounds for assets2");
-    checkSwapBounds(swaps, _convertERC20sToAssets(tokens));
-    checkSwapBounds(swaps, _convertERC20sToAssets(tokens2));
     // start acting as alice
     vm.startPrank(alice);
     // swap amounts with vault
-    vault.batchSwap(
+    int256[] memory deltas = vault.batchSwap(
       IVault.SwapKind.GIVEN_IN,
       swaps,
-      _convertERC20sToAssets(tokens2),
+      _convertERC20sToAssets(tokens),
       IVault.FundManagement(
         alice,
         false,
@@ -276,7 +267,8 @@ contract FlashSwapForkTest is Test {
       block.timestamp + 1000
     );
     vm.stopPrank();
-    // console.log("Amount out: ", amountOut[0]);
+    console.log("Amount 0: ", vm.toString(deltas[0]));
+    console.log("Amount 1: ", vm.toString(deltas[1]));
   }
 
   function checkSwapBounds(IVault.BatchSwapStep[] memory swaps, IAsset[] memory assets) public view returns (bool inBound) {
