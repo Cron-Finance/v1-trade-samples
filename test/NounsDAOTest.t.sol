@@ -77,7 +77,7 @@ contract NounsDAOTest is Test {
     // check LP tokens for _in is 0
     assertEq(ICronV1Pool(pool).balanceOf(_in), 0);
     // check token balances
-    assertGt(IERC20(_token0).balanceOf(_in), joinAmount, "inufficient token0");
+    assertGt(IERC20(_token0).balanceOf(_in), joinAmount, "insufficient token0");
     assertGt(IERC20(_token1).balanceOf(_in), joinAmount, "insufficient token1");
     // start acting as _in
     vm.startPrank(_in);
@@ -100,26 +100,22 @@ contract NounsDAOTest is Test {
     vm.stopPrank();
   }
 
-  function setupPool(address pool, address liquidityProvider) public {
+  function setupPool(address liquidityProvider) public {
     // transfer tokens to liquidityProvider
     transferTokens(liquidityProvider);
-    // stable pool paused, need to unpause
-    vm.startPrank(ADMIN);
-    ICronV1Pool(pool).setPause(false);
-    vm.stopPrank();
     // add liquidity to TWAMM pool
-    joinPool(liquidityProvider, WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Stable));
+    joinPool(liquidityProvider, WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Liquid));
   }
 
   function testForkVaultNounsDAODiversifcation() public {
     address liquidityProvider = vm.addr(100);
     // get pool from factory
-    address pool = ICronV1PoolFactory(FACTORY).getPool(WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Stable));
+    address pool = ICronV1PoolFactory(FACTORY).getPool(WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Liquid));
     // setup pool state
-    setupPool(pool, liquidityProvider);
+    setupPool(liquidityProvider);
     // setup information for short term swap through a TWAMM pool
-    uint256 swapAmount = 450e18;
-    uint256 intervals = 675;
+    uint256 swapAmount = 500e18;
+    uint256 intervals = 168;
     // setup information for long term swap
     bytes memory userData = abi.encode(
       ICronV1PoolEnums.SwapType.LongTermSwap, // swap type
@@ -131,7 +127,7 @@ contract NounsDAOTest is Test {
     vm.startPrank(NOUNS_DAO);
     // approve stETH to be wrapped
     IERC20(STETH).approve(WSTETH, swapAmount);
-    // wrap stETH to wstETH: roughly 450 stETH ~ 400 wstETH
+    // wrap stETH to wstETH: roughly 500 stETH ~ 450 wstETH
     uint256 wrappedAmount = IWStETH(WSTETH).wrap(swapAmount);
     // approve tokens to spend from this contract in the vault
     tokens[0].approve(VAULT, wrappedAmount);
@@ -148,25 +144,25 @@ contract NounsDAOTest is Test {
   function testForkRelayerNounsDAODiversifcation() public {
     address liquidityProvider = vm.addr(100);
     // get pool from factory
-    address pool = ICronV1PoolFactory(FACTORY).getPool(WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Stable));
+    address pool = ICronV1PoolFactory(FACTORY).getPool(WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Liquid));
     // setup pool state
-    setupPool(pool, liquidityProvider);
+    setupPool(liquidityProvider);
     // setup information for short term swap through a TWAMM pool
-    uint256 swapAmount = 450e18;
-    uint256 intervals = 675;
+    uint256 swapAmount = 500e18;
+    uint256 intervals = 168;
     bytes32 poolId = ICronV1Pool(pool).POOL_ID();
     (IERC20[] memory tokens, , ) = IVault(VAULT).getPoolTokens(poolId);
     vm.startPrank(NOUNS_DAO);
     // approve stETH to be wrapped
     IERC20(STETH).approve(WSTETH, swapAmount);
-    // wrap stETH to wstETH: roughly 450 stETH ~ 400 wstETH
+    // wrap stETH to wstETH: roughly 500 stETH ~ 450 wstETH
     uint256 wrappedAmount = IWStETH(WSTETH).wrap(swapAmount);
     // approve relayer
     vault.setRelayerApproval(NOUNS_DAO, RELAYER, true);
     // approve tokens to spend from this contract in the vault
     tokens[0].approve(VAULT, wrappedAmount);
     // setup information for the relayer
-    ICronV1Relayer(RELAYER).longTermSwap(WSTETH, RETH, 0, wrappedAmount, intervals, DELEGATE);
+    ICronV1Relayer(RELAYER).longTermSwap(WSTETH, RETH, uint256(ICronV1PoolEnums.PoolType.Liquid), wrappedAmount, intervals, DELEGATE);
     vm.stopPrank();
   }
 
