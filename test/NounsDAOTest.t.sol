@@ -114,7 +114,7 @@ contract NounsDAOTest is Test {
     // setup pool state
     setupPool(liquidityProvider);
     // setup information for short term swap through a TWAMM pool
-    uint256 swapAmount = 500e18;
+    uint256 swapAmount = 256e18;
     uint256 intervals = 168;
     // setup information for long term swap
     bytes memory userData = abi.encode(
@@ -148,15 +148,16 @@ contract NounsDAOTest is Test {
     // setup pool state
     setupPool(liquidityProvider);
     // setup information for short term swap through a TWAMM pool
-    uint256 swapAmount = 500e18;
-    uint256 intervals = 168;
+    uint256 swapAmount = 600e18;
+    uint256 intervals = 168; // 1 interval per hour
     bytes32 poolId = ICronV1Pool(pool).POOL_ID();
     (IERC20[] memory tokens, , ) = IVault(VAULT).getPoolTokens(poolId);
     vm.startPrank(NOUNS_DAO);
     // approve stETH to be wrapped
     IERC20(STETH).approve(WSTETH, swapAmount);
-    // wrap stETH to wstETH: roughly 500 stETH ~ 450 wstETH
+    // wrap stETH to wstETH: roughly 265 stETH ~ 235 wstETH
     uint256 wrappedAmount = IWStETH(WSTETH).wrap(swapAmount);
+    console.log("wrapped amount", wrappedAmount);
     // approve relayer
     vault.setRelayerApproval(NOUNS_DAO, RELAYER, true);
     // approve tokens to spend from this contract in the vault
