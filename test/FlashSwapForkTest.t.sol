@@ -9,6 +9,7 @@ import "forge-std/StdUtils.sol";
 import { IERC20 } from "@balancer-labs/v2-interfaces/contracts/solidity-utils/openzeppelin/IERC20.sol";
 
 import { IVault } from "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
+import { IWETH } from "@balancer-labs/v2-interfaces/contracts/solidity-utils/misc/IWETH.sol";
 import { IAsset } from "@balancer-labs/v2-interfaces/contracts/vault/IAsset.sol";
 import { IWETH } from "@balancer-labs/v2-interfaces/contracts/solidity-utils/misc/IWETH.sol";
 
@@ -121,6 +122,105 @@ contract FlashSwapForkTest is Test {
       )
     );
     assertGt(ICronV1Pool(pool).balanceOf(_in), 0);
+    vm.stopPrank();
+  }
+
+  // forge test -vvvvv --fork-url https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY --match-test testForkSwapWstethWeth
+  function testForkSwapWstethWeth() public {
+    address alice = vm.addr(100);
+    transferTokensLST(alice);
+    // WSTETH: 5000
+    // RETH: 4000
+    vm.label(alice, "alice");
+    vm.label(WSTETH, "WSTETH");
+    vm.label(WETH, "WETH");
+
+    uint256 swapAmount = 1e18;
+
+    IERC20[] memory tokens = new IERC20[](2);
+    tokens[0] = IERC20(WSTETH);
+    tokens[1] = IERC20(WETH);
+
+    IAsset[] memory assets = _convertERC20sToAssets(tokens);
+    uint256 limit = 0;
+
+    // start acting as alice
+    vm.startPrank(alice);
+    // approve tokens to be used by vault
+    IERC20(tokens[0]).approve(VAULT, swapAmount);
+    console.log("ETH Balance Before", alice.balance);
+    console.log("WETH Balance Before", IERC20(WETH).balanceOf(alice));
+    // swap amounts with vault
+    uint256 amountCalculated = vault.swap(
+      IVault.SingleSwap(
+        poolIdWstETHStablePool,
+        IVault.SwapKind.GIVEN_IN,
+        assets[0],
+        assets[1],
+        1e18,
+        "0x"
+      ),
+      IVault.FundManagement(
+        alice,
+        false,
+        payable (alice),
+        false
+      ),
+      limit,
+      block.timestamp + 1000
+    );
+    console.log("WETH Balance After", IERC20(WETH).balanceOf(alice));
+    IWETH(WETH).withdraw(amountCalculated);
+    console.log("ETH Balance After", alice.balance);
+    console.log("Amount Out: ", vm.toString(amountCalculated));
+    vm.stopPrank();
+  }
+
+  // forge test -vvvvv --fork-url https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY --match-test testForkSwapRethWeth
+  function testForkSwapRethWeth() public {
+    address alice = vm.addr(100);
+    transferTokensLST(alice);
+    vm.label(alice, "alice");
+    vm.label(RETH, "RETH");
+    vm.label(WETH, "WETH");
+
+    uint256 swapAmount = 1e18;
+
+    IERC20[] memory tokens = new IERC20[](2);
+    tokens[0] = IERC20(RETH);
+    tokens[1] = IERC20(WETH);
+
+    IAsset[] memory assets = _convertERC20sToAssets(tokens);
+    uint256 limit = 0;
+
+    // start acting as alice
+    vm.startPrank(alice);
+    // approve tokens to be used by vault
+    IERC20(tokens[0]).approve(VAULT, swapAmount);
+    console.log("ETH Balance Before", alice.balance);
+    console.log("WETH Balance Before", IERC20(WETH).balanceOf(alice));
+    // swap amounts with vault
+    uint256 amountCalculated = vault.swap(
+      IVault.SingleSwap(
+        poolIdRETHStablePool,
+        IVault.SwapKind.GIVEN_IN,
+        assets[0],
+        assets[1],
+        1e18,
+        "0x"
+      ),
+      IVault.FundManagement(
+        alice,
+        false,
+        payable (alice),
+        false
+      ),
+      limit,
+      block.timestamp + 1000
+    );
+    console.log("WETH Balance After", IERC20(WETH).balanceOf(alice));
+    IWETH(WETH).withdraw(amountCalculated);
+    console.log("ETH Balance After", alice.balance);
     vm.stopPrank();
   }
 
