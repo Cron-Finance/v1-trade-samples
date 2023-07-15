@@ -167,6 +167,22 @@ contract NounsDAOTest is Test {
     vm.stopPrank();
   }
 
+  // forge test -vvvvv --fork-url https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY --match-test testForkDelegateWithdraw
+  function testForkDelegateWithdraw() public {
+    address nouns = 0x0BC3807Ec262cB779b38D65b38158acC3bfedE10;
+    address delegate = 0x29c5dad7E34d0A27d6F65a0A7E07E4d03Dcd68c8;
+
+    vm.startPrank(delegate);
+    ICronV1Relayer(RELAYER).withdraw(
+      WSTETH,
+      RETH,
+      uint256(ICronV1PoolEnums.PoolType.Liquid),
+      0,                     // orderId
+      nouns                  // Receiver address
+    );
+    vm.stopPrank();
+  }
+
   function getTokenIndex(address _token, bytes32 _poolId) public view returns (uint256 index) {
     (IERC20[] memory tokens, , ) = vault.getPoolTokens(_poolId);
     for (uint256 i = 0; i < tokens.length; i++) {
